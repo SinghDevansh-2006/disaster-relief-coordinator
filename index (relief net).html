@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RELIEFNET // FIELD OPERATIONS TERMINAL</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+  background:#080a06;
+  color:#ffcc44;
+  font-family:'Share Tech Mono',monospace;
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+/* scanlines */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,0.25) 0,rgba(0,0,0,0.25) 1px,transparent 1px,transparent 3px);
+  pointer-events:none;z-index:9999;
+}
+
+/* ── TOP BAR ── */
+#topbar{
+  display:flex;align-items:center;gap:16px;
+  padding:0 18px;
+  height:50px;
+  background:#0c0f09;
+  border-bottom:1px solid #ffb30033;
+  flex-shrink:0;
+}
+
+.logo{
+  font-family:'Orbitron',monospace;
+  font-size:16px;font-weight:900;
+  color:#ffb300;
+  text-shadow:0 0 18px #ffb300;
+  letter-spacing:4px;
+  white-space:nowrap;
+}
+.logo span{color:#ff3b3b;}
+
+.divdr{width:1px;height:22px;background:#ffb30033;}
+
+.tstat{display:flex;flex-direction:column;gap:1px;}
+.tstat-lbl{font-size:8px;letter-spacing:2px;color:#7a6030;text-transform:uppercase;}
+.tstat-val{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;}
+.green{color:#39ff14;text-shadow:0 0 8px #39ff14;}
+.red{color:#ff3b3b;text-shadow:0 0 8px #ff3b3b;animation:blink 1s step-end infinite;}
+.blue{color:#00d4ff;text-shadow:0 0 8px #00d4ff;}
+.amber{color:#ffb300;text-shadow:0 0 8px #ffb300;}
+@keyframes blink{50%{opacity:0.2;}}
+
+.spacer{flex:1;}
+#clock{font-family:'Orbitron',monospace;font-size:17px;font-weight:700;color:#ffb300;text-shadow:0 0 12px #ffb300;letter-spacing:2px;}
+.uplink{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:1.5px;color:#39ff14;text-shadow:0 0 6px #39ff14;}
+.updot{width:7px;height:7px;border-radius:50%;background:#39ff14;box-shadow:0 0 8px #39ff14;animation:blink 1.4s ease-in-out infinite;}
+
+/* ── BODY ── */
+#body{
+  display:flex;
+  flex:1;
+  min-height:0;
+}
+
+/* ── LEFT PANEL ── */
+#left{
+  width:280px;
+  flex-shrink:0;
+  background:#0c0f09;
+  border-right:1px solid #ffb30033;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.tabs{display:flex;border-bottom:1px solid #ffb30033;flex-shrink:0;}
+.tab{
+  flex:1;padding:9px 4px;text-align:center;
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;
+  color:#7a6030;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;
+}
+.tab.on{color:#ffb300;border-bottom-color:#ffb300;background:#ffb30010;}
+.tab:hover{color:#ffcc44;}
+
+.tc{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tc.on{display:flex;}
+
+.slist{
+  overflow-y:auto;flex:1;padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+  scrollbar-width:thin;scrollbar-color:#7a6030 transparent;
+}
+.slist::-webkit-scrollbar{width:3px;}
+.slist::-webkit-scrollbar-thumb{background:#7a6030;}
+
+/* cards */
+.card{
+  border:1px solid #ffb30022;
+  border-left:3px solid #7a6030;
+  background:linear-gradient(135deg,#0f110b,#090b07);
+  padding:10px 11px;cursor:pointer;
+  transition:all 0.15s;
+}
+.card:hover{border-left-color:#ffb300;transform:translateX(2px);}
+.card.sel{border-color:#00d4ff;border-left-color:#00d4ff;background:#001a2e;}
+.card.crit{border-left-color:#ff3b3b;}
+
+.crow{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px;}
+.ccs{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:#ffb300;text-shadow:0 0 6px #ffb30066;}
+.cname{font-size:10px;color:#7a6030;margin-top:2px;}
+.cassign{font-size:10px;color:#00d4ff;margin-top:2px;}
+
+.chip{
+  font-family:'Orbitron',monospace;font-size:7px;font-weight:700;
+  padding:2px 6px;letter-spacing:1px;flex-shrink:0;
+}
+.chip-available{background:#39ff1411;color:#39ff14;border:1px solid #39ff1444;}
+.chip-assigned{background:#00d4ff11;color:#00d4ff;border:1px solid #00d4ff44;}
+.chip-offline{background:#ffffff08;color:#7a6030;border:1px solid #ffffff18;}
+.chip-critical{background:#ff3b3b18;color:#ff3b3b;border:1px solid #ff3b3b44;animation:blink 0.9s step-end infinite;}
+.chip-high{background:#ff880018;color:#ff8800;border:1px solid #ff880044;}
+.chip-medium{background:#ffb30015;color:#ffb300;border:1px solid #ffb30044;}
+.chip-low{background:#39ff1410;color:#39ff14;border:1px solid #39ff1430;}
+
+.ctags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.ctag{font-size:9px;color:#7a6030;border:1px solid #ffffff12;padding:1px 5px;}
+
+.pbar{height:2px;background:#ffffff08;margin-top:7px;overflow:hidden;}
+.pfill{height:100%;}
+
+.addneed{
+  border:1px dashed #ffb30033;background:transparent;
+  color:#7a6030;font-family:'Orbitron',monospace;
+  font-size:8px;letter-spacing:1.5px;
+  padding:10px;cursor:pointer;text-align:center;
+  transition:all 0.2s;width:100%;
+}
+.addneed:hover{border-color:#ffb300;color:#ffb300;background:#ffb30010;}
+
+/* ── MAP ── */
+#mapwrap{
+  flex:1;
+  position:relative;
+  background:#060805;
+  overflow:hidden;
+}
+
+/* radar rings drawn in CSS */
+.ring{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid #ffb30018;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+
+/* radar sweep */
+#sweep{
+  position:absolute;
+  top:50%;left:50%;
+  width:500px;height:500px;
+  margin:-250px 0 0 -250px;
+  border-radius:50%;
+  pointer-events:none;
+  animation:spin 8s linear infinite;
+  background:conic-gradient(
+    from 0deg,
+    transparent 0deg,transparent 340deg,
+    rgba(255,179,0,0.05) 340deg,rgba(255,179,0,0.15) 355deg,rgba(255,179,0,0.05) 360deg
+  );
+  z-index:1;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* crosshair lines */
+#mapwrap::before,#mapwrap::after{
+  content:'';position:absolute;
+  background:#ffb30015;pointer-events:none;z-index:1;
+}
+#mapwrap::before{width:1px;height:100%;left:50%;top:0;}
+#mapwrap::after{width:100%;height:1px;top:50%;left:0;}
+
+#mapsvg{
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+  z-index:2;
+}
+
+/* legend */
+#legend{
+  position:absolute;bottom:14px;left:14px;
+  background:rgba(8,10,6,0.9);
+  border:1px solid #ffb30033;
+  padding:10px 14px;z-index:5;
+}
+.legrow{display:flex;align-items:center;gap:8px;font-size:10px;color:#7a6030;margin-bottom:4px;}
+.legrow:last-child{margin:0;}
+.legsym{width:11px;height:11px;flex-shrink:0;}
+.hex{clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);}
+
+/* coords */
+#coords{
+  position:absolute;bottom:14px;right:14px;
+  font-family:'Orbitron',monospace;font-size:9px;
+  color:#7a6030;letter-spacing:1px;z-index:5;text-align:right;
+}
+
+/* tooltip */
+#tip{
+  position:absolute;
+  background:rgba(8,10,6,0.95);
+  border:1px solid #ffb300;
+  padding:5px 10px;font-size:10px;color:#ffb300;
+  pointer-events:none;z-index:10;display:none;
+  white-space:nowrap;
+  box-shadow:0 0 10px #ffb30044;
+}
+
+/* filter bar */
+#filterbar{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  display:flex;gap:6px;z-index:5;
+}
+.fbtn{
+  background:rgba(8,10,6,0.85);
+  border:1px solid #ffb30033;
+  color:#7a6030;
+  font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1.5px;
+  padding:5px 12px;cursor:pointer;transition:all 0.2s;
+}
+.fbtn:hover,.fbtn.on{border-color:#ffb300;color:#ffb300;background:#ffb30015;text-shadow:0 0 6px #ffb300;}
+
+/* ── RIGHT PANEL ── */
+#right{
+  width:270px;
+  flex-shrink:0;
+  background:#0c0f09;
+  border-left:1px solid #ffb30033;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.ph{
+  padding:9px 13px;
+  border-bottom:1px solid #ffb30033;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+  background:linear-gradient(90deg,#ffb30010,transparent);
+}
+.ph-title{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:3px;color:#7a6030;}
+.ph-badge{font-family:'Share Tech Mono',monospace;font-size:14px;color:#ffb300;text-shadow:0 0 6px #ffb300;}
+
+#assignsec{padding:11px;border-bottom:1px solid #ffb30033;flex-shrink:0;}
+
+.slbl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;color:#7a6030;margin-bottom:3px;}
+
+.fsel,.finp{
+  width:100%;background:#0a0c08;
+  border:1px solid #ffb30033;color:#ffb300;
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  padding:6px 8px;outline:none;
+  transition:border-color 0.2s;appearance:none;
+  letter-spacing:0.5px;margin-bottom:8px;
+}
+.fsel:focus,.finp:focus{border-color:#ffb300;box-shadow:0 0 6px #ffb30033;}
+
+.execbtn{
+  width:100%;background:transparent;
+  border:1px solid #ffb300;color:#ffb300;
+  font-family:'Orbitron',monospace;font-size:9px;font-weight:700;
+  letter-spacing:3px;padding:9px;cursor:pointer;
+  transition:all 0.25s;position:relative;overflow:hidden;
+}
+.execbtn:hover{background:#ffb300;color:#000;box-shadow:0 0 18px #ffb30066;}
+
+/* log */
+#logsec{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#logbody{
+  flex:1;overflow-y:auto;padding:9px;
+  display:flex;flex-direction:column;gap:5px;
+  scrollbar-width:thin;scrollbar-color:#7a6030 transparent;
+}
+#logbody::-webkit-scrollbar{width:2px;}
+#logbody::-webkit-scrollbar-thumb{background:#7a6030;}
+
+.logline{
+  display:grid;grid-template-columns:36px 8px 1fr;
+  gap:5px;font-size:10px;align-items:baseline;
+  animation:lin 0.2s ease;
+}
+@keyframes lin{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.lts{font-family:'Orbitron',monospace;font-size:7px;color:#7a6030;}
+.lpip{width:5px;height:5px;border-radius:50%;margin-top:3px;flex-shrink:0;}
+.lmsg{color:#ffb300;line-height:1.4;}
+.lmsg b{color:#fff;}
+
+/* resources */
+#ressec{padding:9px 11px;border-top:1px solid #ffb30033;flex-shrink:0;}
+.resrow{display:grid;grid-template-columns:60px 1fr 26px;align-items:center;gap:7px;margin-bottom:5px;}
+.reslbl{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:1.5px;color:#7a6030;}
+.restrack{height:4px;background:#ffffff08;border:1px solid #ffffff0a;overflow:hidden;}
+.resfill{height:100%;transition:width 0.8s,background 0.4s;}
+.respct{font-family:'Orbitron',monospace;font-size:8px;color:#7a6030;text-align:right;}
+
+/* ── STATUSBAR ── */
+#statusbar{
+  height:34px;display:flex;align-items:center;
+  padding:0 18px;gap:18px;
+  border-top:1px solid #ffb30033;
+  background:#0c0f09;flex-shrink:0;
+  overflow:hidden;
+}
+.sbitem{font-size:8px;font-family:'Orbitron',monospace;letter-spacing:1.5px;color:#7a6030;white-space:nowrap;}
+.sbitem.on{color:#ffb300;text-shadow:0 0 6px #ffb300;}
+#ticker{flex:1;overflow:hidden;position:relative;}
+.tickin{
+  display:inline-block;white-space:nowrap;
+  font-size:9px;font-family:'Share Tech Mono',monospace;
+  color:#7a603099;letter-spacing:1px;
+  animation:tscroll 35s linear infinite;
+}
+@keyframes tscroll{from{transform:translateX(100%);}to{transform:translateX(-100%);}}
+
+/* ── MODAL ── */
+#modalbg{
+  position:fixed;inset:0;background:rgba(0,0,0,0.8);
+  z-index:300;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.2s;
+}
+#modalbg.open{opacity:1;pointer-events:all;}
+#modal{
+  background:#0c0f09;border:1px solid #ffb300;
+  box-shadow:0 0 40px #ffb30033;
+  padding:22px;width:360px;
+  transform:scale(0.95);transition:transform 0.2s;
+  position:relative;
+}
+#modalbg.open #modal{transform:scale(1);}
+#modal::before{
+  content:'// FIELD REPORT //';
+  position:absolute;top:-9px;left:16px;
+  background:#0c0f09;padding:0 8px;
+  font-family:'Orbitron',monospace;font-size:8px;
+  letter-spacing:2px;color:#ffb300;text-shadow:0 0 8px #ffb300;
+}
+.mtitle{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:2px;color:#ffb300;margin-bottom:14px;text-shadow:0 0 10px #ffb300;}
+.mbtns{display:flex;gap:10px;margin-top:12px;}
+.mabort{flex:1;padding:8px;background:transparent;border:1px solid #ffb30033;color:#7a6030;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:2px;cursor:pointer;transition:all 0.2s;}
+.mabort:hover{border-color:#ff3b3b;color:#ff3b3b;}
+.mok{flex:1;padding:8px;background:#ffb300;border:1px solid #ffb300;color:#000;font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;}
+.mok:hover{background:#ffd000;box-shadow:0 0 14px #ffb30066;}
+
+/* alert */
+#alert{
+  position:fixed;top:58px;right:18px;
+  background:#0c0f09;border:1px solid #39ff14;
+  box-shadow:0 0 16px #39ff1433;
+  padding:9px 15px;font-family:'Orbitron',monospace;
+  font-size:10px;letter-spacing:1px;color:#39ff14;
+  z-index:200;transform:translateX(130%);transition:transform 0.3s;
+}
+#alert.show{transform:translateX(0);}
+
+/* boot */
+#boot{
+  position:fixed;inset:0;background:#080a06;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:5px;
+  z-index:500;
+}
+.bl{font-family:'Share Tech Mono',monospace;font-size:12px;color:#ffb300;text-shadow:0 0 6px #ffb300;opacity:0;letter-spacing:1px;}
+@keyframes bf{to{opacity:1;}}
+#bbarw{width:380px;height:5px;background:#0c0f09;border:1px solid #ffb30033;margin-top:14px;overflow:hidden;}
+#bbar{height:100%;background:#ffb300;width:0%;box-shadow:0 0 10px #ffb300;transition:width 0.05s;}
+</style>
+</head>
+<body>
+
+<!-- BOOT -->
+<div id="boot">
+  <div style="font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#ffb300;text-shadow:0 0 28px #ffb300;letter-spacing:6px;margin-bottom:10px;">RELIEFNET</div>
+  <div class="bl" style="animation:bf 0.1s 0.2s forwards;">DISASTER RELIEF FIELD OPERATIONS TERMINAL v2.4</div>
+  <div class="bl" style="animation:bf 0.1s 0.5s forwards;color:#7a6030;">INITIALIZING SECURE CHANNEL...</div>
+  <div class="bl" style="animation:bf 0.1s 0.8s forwards;color:#7a6030;">LOADING ZONE DATABASE... [5 ZONES]</div>
+  <div class="bl" style="animation:bf 0.1s 1.1s forwards;color:#7a6030;">SYNCING VOLUNTEER REGISTRY... [8 UNITS]</div>
+  <div class="bl" style="animation:bf 0.1s 1.4s forwards;color:#7a6030;">FETCHING ACTIVE RELIEF NEEDS... [5 NEEDS]</div>
+  <div class="bl" style="animation:bf 0.1s 1.7s forwards;color:#39ff14;">ALL SYSTEMS NOMINAL</div>
+  <div id="bbarw"><div id="bbar"></div></div>
+</div>
+
+<!-- APP -->
+<div id="topbar">
+  <div class="logo">RELIEF<span>NET</span></div>
+  <div class="divdr"></div>
+  <div class="tstat"><div class="tstat-lbl">ACTIVE UNITS</div><div class="tstat-val green" id="ts-vol">6</div></div>
+  <div class="divdr"></div>
+  <div class="tstat"><div class="tstat-lbl">OPEN NEEDS</div><div class="tstat-val red" id="ts-needs">4</div></div>
+  <div class="divdr"></div>
+  <div class="tstat"><div class="tstat-lbl">ASSIGNMENTS</div><div class="tstat-val blue" id="ts-assign">3</div></div>
+  <div class="divdr"></div>
+  <div class="tstat"><div class="tstat-lbl">THREAT LEVEL</div><div class="tstat-val red">CRITICAL</div></div>
+  <div class="spacer"></div>
+  <div class="uplink"><div class="updot"></div>UPLINK ACTIVE</div>
+  <div class="divdr"></div>
+  <div id="clock">--:--:--</div>
+</div>
+
+<div id="body">
+
+  <!-- LEFT -->
+  <div id="left">
+    <div class="tabs">
+      <div class="tab on" onclick="switchTab('vol')">VOLUNTEERS</div>
+      <div class="tab" onclick="switchTab('needs')">RELIEF NEEDS</div>
+    </div>
+    <div class="tc on" id="tc-vol"><div class="slist" id="vollist"></div></div>
+    <div class="tc" id="tc-needs">
+      <div class="slist" id="needslist">
+        <button class="addneed" onclick="openModal()">[ + REPORT NEW RELIEF NEED ]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="mapwrap">
+    <!-- radar rings -->
+    <div class="ring" style="width:90px;height:90px;"></div>
+    <div class="ring" style="width:200px;height:200px;"></div>
+    <div class="ring" style="width:320px;height:320px;"></div>
+    <div class="ring" style="width:450px;height:450px;"></div>
+    <div class="ring" style="width:590px;height:590px;"></div>
+    <div id="sweep"></div>
+
+    <!-- filter buttons -->
+    <div id="filterbar">
+      <button class="fbtn on" onclick="filt('all',this)">ALL</button>
+      <button class="fbtn" onclick="filt('critical',this)">CRITICAL</button>
+      <button class="fbtn" onclick="filt('available',this)">AVAILABLE</button>
+      <button class="fbtn" onclick="filt('assigned',this)">ASSIGNED</button>
+    </div>
+
+    <svg id="mapsvg"></svg>
+
+    <div id="legend">
+      <div style="font-family:'Orbitron',monospace;font-size:7px;letter-spacing:2px;color:#7a6030;margin-bottom:5px;">SYMBOLOGY</div>
+      <div class="legrow"><div class="legsym hex" style="background:#ff3b3b;"></div>Critical Need</div>
+      <div class="legrow"><div class="legsym hex" style="background:#ff8800;"></div>High Priority</div>
+      <div class="legrow"><div class="legsym hex" style="background:#ffb300;"></div>Medium Priority</div>
+      <div class="legrow"><div class="legsym" style="background:#39ff14;border-radius:2px;"></div>Volunteer (Available)</div>
+      <div class="legrow"><div class="legsym" style="background:#00d4ff;border-radius:2px;"></div>Volunteer (Assigned)</div>
+    </div>
+
+    <div id="coords">
+      <div id="clat">LAT: 28.6139°N</div>
+      <div id="clng">LNG: 77.2090°E</div>
+      <div id="cgrid" style="margin-top:2px;font-size:8px;">GRID: A-01</div>
+    </div>
+
+    <div id="tip"></div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right">
+    <div class="ph"><span class="ph-title">COMMAND CONSOLE</span><span class="ph-badge">CMD</span></div>
+
+    <div id="assignsec">
+      <div class="slbl">SELECT VOLUNTEER</div>
+      <select class="fsel" id="sv"></select>
+      <div class="slbl">SELECT NEED</div>
+      <select class="fsel" id="sn"></select>
+      <div class="slbl">PRIORITY OVERRIDE</div>
+      <select class="fsel" id="sp">
+        <option value="">— MAINTAIN CURRENT —</option>
+        <option value="critical">CRITICAL</option>
+        <option value="high">HIGH</option>
+        <option value="medium">MEDIUM</option>
+        <option value="low">LOW</option>
+      </select>
+      <button class="execbtn" onclick="doAssign()">⚡ EXECUTE ASSIGNMENT</button>
+    </div>
+
+    <div id="logsec">
+      <div class="ph" style="flex-shrink:0;"><span class="ph-title">OPERATIONS LOG</span><span class="ph-badge" id="logct">000</span></div>
+      <div id="logbody"></div>
+    </div>
+
+    <div id="ressec">
+      <div style="font-family:'Orbitron',monospace;font-size:7px;letter-spacing:2px;color:#7a6030;margin-bottom:8px;">RESOURCE STATUS</div>
+      <div class="resrow"><div class="reslbl">MEDKITS</div><div class="restrack"><div class="resfill" id="r-med" style="width:70%;background:#39ff14;"></div></div><div class="respct" id="rv-med">70%</div></div>
+      <div class="resrow"><div class="reslbl">FOOD</div><div class="restrack"><div class="resfill" id="r-food" style="width:45%;background:#ffb300;"></div></div><div class="respct" id="rv-food">45%</div></div>
+      <div class="resrow"><div class="reslbl">WATER</div><div class="restrack"><div class="resfill" id="r-water" style="width:28%;background:#ff3b3b;"></div></div><div class="respct" id="rv-water">28%</div></div>
+      <div class="resrow"><div class="reslbl">SHELTER</div><div class="restrack"><div class="resfill" id="r-shelter" style="width:55%;background:#ffb300;"></div></div><div class="respct" id="rv-shelter">55%</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <div class="sbitem on">■ SYSTEM ONLINE</div>
+  <div class="sbitem">ENC: AES-256</div>
+  <div class="sbitem">UPTIME: <span id="upt">00:00:00</span></div>
+  <div id="ticker"><div class="tickin">RELIEFNET FIELD OPS TERMINAL &nbsp;// &nbsp;NORTH ZONE: 2 CRITICAL SITES &nbsp;// &nbsp;WATER LEVELS CRITICAL — BELOW 30% &nbsp;// &nbsp;EAST FLOOD ZONE: RISING WATERS &nbsp;// &nbsp;MEDKIT RESUPPLY ETA: 1400 HRS &nbsp;// &nbsp;SOUTH SITE: HEAVY MACHINERY REQUESTED &nbsp;// &nbsp;</div></div>
+  <div class="sbitem">OP: DEVANSH-ALPHA</div>
+</div>
+
+<!-- MODAL -->
+<div id="modalbg">
+  <div id="modal">
+    <div class="mtitle">NEW RELIEF NEED // FIELD REPORT</div>
+    <div class="slbl">LOCATION / SECTOR</div>
+    <input class="finp" id="mloc" placeholder="e.g. SECTOR 7 — NORTH GRID"/>
+    <div class="slbl">TYPE OF NEED</div>
+    <select class="fsel" id="mtype">
+      <option>Medical Aid</option><option>Food &amp; Water</option>
+      <option>Shelter</option><option>Search &amp; Rescue</option>
+      <option>Evacuation</option><option>Infrastructure</option>
+    </select>
+    <div class="slbl">PRIORITY</div>
+    <select class="fsel" id="mpri">
+      <option value="critical">CRITICAL</option>
+      <option value="high">HIGH</option>
+      <option value="medium" selected>MEDIUM</option>
+      <option value="low">LOW</option>
+    </select>
+    <div class="slbl">CIVILIANS AFFECTED</div>
+    <input class="finp" id="maff" type="number" placeholder="e.g. 250" min="1"/>
+    <div class="mbtns">
+      <button class="mabort" onclick="closeModal()">ABORT</button>
+      <button class="mok" onclick="submitNeed()">TRANSMIT</button>
+    </div>
+  </div>
+</div>
+
+<div id="alert"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────
+const VOLS=[
+  {id:1,name:"Arjun Mehta",  cs:"ALPHA-01",skills:["Medical","Rescue"],    status:"available",zone:"North",  px:0.28,py:0.22},
+  {id:2,name:"Priya Sharma", cs:"ALPHA-02",skills:["Food","Shelter"],      status:"assigned", zone:"East",   px:0.70,py:0.28},
+  {id:3,name:"Rahul Verma",  cs:"BRAVO-01",skills:["Evacuation","Logistics"],status:"available",zone:"South",px:0.40,py:0.72},
+  {id:4,name:"Sneha Iyer",   cs:"BRAVO-02",skills:["Medical","Counselling"],status:"available",zone:"West",  px:0.16,py:0.50},
+  {id:5,name:"Karan Nair",   cs:"CHARLIE-1",skills:["Infra","Rescue"],     status:"offline",  zone:"Central",px:0.50,py:0.45},
+  {id:6,name:"Divya Patel",  cs:"CHARLIE-2",skills:["Food","Medical"],     status:"assigned", zone:"North",  px:0.58,py:0.20},
+  {id:7,name:"Amit Joshi",   cs:"DELTA-01", skills:["Logistics","Evacuation"],status:"available",zone:"East",px:0.76,py:0.58},
+  {id:8,name:"Meera Rajput", cs:"DELTA-02", skills:["Shelter","Counselling"],status:"available",zone:"South",px:0.28,py:0.80},
+];
+
+const NEEDS=[
+  {id:1,loc:"North Camp Alpha",  type:"Medical Aid",    pri:"critical",affected:320,status:"open",    px:0.32,py:0.18},
+  {id:2,loc:"East Flood Zone",   type:"Food & Water",   pri:"high",    affected:540,status:"open",    px:0.72,py:0.38},
+  {id:3,loc:"West Shelter Block",type:"Shelter",        pri:"medium",  affected:180,status:"assigned",px:0.18,py:0.60},
+  {id:4,loc:"South Rubble Site", type:"Search & Rescue",pri:"critical",affected:90, status:"open",    px:0.46,py:0.78},
+  {id:5,loc:"Central Evac Hub",  type:"Evacuation",     pri:"high",    affected:410,status:"open",    px:0.56,py:0.50},
+];
+
+// assignments link vol id → need id
+let ASGN=[{v:2,n:3},{v:6,n:2}];
+let logCt=0, assignCt=3, t0=Date.now();
+
+const PC={critical:"#ff3b3b",high:"#ff8800",medium:"#ffb300",low:"#39ff14"};
+const SC={available:"#39ff14",assigned:"#00d4ff",offline:"#3a3020"};
+
+// ── BOOT ──────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  let p=0;
+  const bar=document.getElementById('bbar');
+  const iv=setInterval(()=>{
+    p+=Math.random()*15+3;
+    if(p>=100){p=100;clearInterval(iv);
+      setTimeout(()=>{
+        const b=document.getElementById('boot');
+        b.style.transition='opacity 0.5s';
+        b.style.opacity='0';
+        setTimeout(()=>{b.style.display='none';init();},500);
+      },300);
+    }
+    bar.style.width=p+'%';
+  },80);
+});
+
+function init(){
+  renderVols();renderNeeds();populateSels();
+  drawMap();startClock();
+  addLog('SYSTEM ONLINE — RELIEFNET ACTIVE','#39ff14');
+  addLog('5 RELIEF NEEDS LOADED FROM DATABASE','#ff8800');
+  addLog('8 VOLUNTEER UNITS REGISTERED','#00d4ff');
+  setInterval(()=>{
+    const m=[
+      ['SATELLITE UPLINK REFRESHED','#ffb300'],
+      ['ZONE ALPHA: SITUATION UNCHANGED','#7a6030'],
+      ['SUPPLY DROP ETA: 47 MIN — NORTH CAMP','#00d4ff'],
+      ['WEATHER: HIGH WINDS EAST SECTOR','#ff8800'],
+    ];
+    const r=m[Math.floor(Math.random()*m.length)];
+    addLog(r[0],r[1]);
+  },14000);
+}
+
+// ── MAP — uses % positions so it ALWAYS works ──────────────
+let curFilter='all';
+
+function drawMap(filter){
+  if(filter!==undefined) curFilter=filter;
+  const svg=document.getElementById('mapsvg');
+  const W=svg.clientWidth||svg.getBoundingClientRect().width||800;
+  const H=svg.clientHeight||svg.getBoundingClientRect().height||500;
+  svg.innerHTML='';
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+
+  // grid
+  for(let x=0;x<W;x+=40){
+    const l=el('line',{x1:x,y1:0,x2:x,y2:H,stroke:'#ffb30010','stroke-width':'0.5'});
+    svg.appendChild(l);
+  }
+  for(let y=0;y<H;y+=40){
+    const l=el('line',{x1:0,y1:y,x2:W,y2:y,stroke:'#ffb30010','stroke-width':'0.5'});
+    svg.appendChild(l);
+  }
+
+  // zones
+  const zones=[
+    {cx:0.30,cy:0.30,rx:0.20,ry:0.25,color:'#3b82f6',label:'NORTH ZONE'},
+    {cx:0.70,cy:0.42,rx:0.18,ry:0.28,color:'#f97316',label:'EAST ZONE'},
+    {cx:0.40,cy:0.74,rx:0.20,ry:0.22,color:'#22c55e',label:'SOUTH ZONE'},
+    {cx:0.15,cy:0.52,rx:0.12,ry:0.22,color:'#a855f7',label:'WEST ZONE'},
+    {cx:0.52,cy:0.48,rx:0.12,ry:0.14,color:'#eab308',label:'CENTRAL'},
+  ];
+  zones.forEach(z=>{
+    const e=el('ellipse',{cx:z.cx*W,cy:z.cy*H,rx:z.rx*W,ry:z.ry*H,
+      fill:z.color,stroke:z.color,'stroke-width':'1',opacity:'0.07'});
+    svg.appendChild(e);
+    const t=txt(z.label,z.cx*W,z.cy*H);
+    t.setAttribute('font-size','9');t.setAttribute('fill',z.color);
+    t.setAttribute('opacity','0.35');t.setAttribute('font-family','Orbitron');
+    t.setAttribute('letter-spacing','2');t.setAttribute('text-anchor','middle');
+    svg.appendChild(t);
+  });
+
+  // connectors
+  if(curFilter==='all'||curFilter==='assigned'){
+    ASGN.forEach(a=>{
+      const v=VOLS.find(x=>x.id===a.v), n=NEEDS.find(x=>x.id===a.n);
+      if(!v||!n) return;
+      const x1=v.px*W,y1=v.py*H,x2=n.px*W,y2=n.py*H;
+      const line=el('line',{x1,y1,x2,y2,stroke:'#00d4ff','stroke-width':'1.2',
+        'stroke-dasharray':'5 5',opacity:'0.5'});
+      line.innerHTML=`<animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1s" repeatCount="indefinite"/>`;
+      svg.appendChild(line);
+      // midpoint dot
+      svg.appendChild(el('circle',{cx:(x1+x2)/2,cy:(y1+y2)/2,r:'3',fill:'#00d4ff',opacity:'0.7'}));
+    });
+  }
+
+  // need nodes (hexagons)
+  NEEDS.forEach(n=>{
+    if(curFilter==='available') return;
+    if(curFilter==='assigned'&&n.status!=='assigned') return;
+    if(curFilter==='critical'&&n.pri!=='critical') return;
+    const cx=n.px*W, cy=n.py*H;
+    const color=PC[n.pri];
+    const g=el('g',{transform:`translate(${cx},${cy})`,style:'cursor:pointer;'});
+    g.addEventListener('mousemove',(e)=>showTip(e,`${n.loc} | ${n.type} | ${n.affected} AFFECTED`));
+    g.addEventListener('mouseleave',hideTip);
+    g.addEventListener('click',()=>hlNeed(n.id));
+
+    // outer pulse ring (animate for critical)
+    const ring=el('polygon',{points:hexPts(0,0,14),fill:'none',stroke:color,'stroke-width':'1',opacity:'0.35'});
+    if(n.pri==='critical'){
+      ring.innerHTML=`
+        <animate attributeName="opacity" values="0.5;0.05;0.5" dur="1.4s" repeatCount="indefinite"/>
+        <animate attributeName="points" values="${hexPts(0,0,13)};${hexPts(0,0,18)};${hexPts(0,0,13)}" dur="1.4s" repeatCount="indefinite"/>`;
+    }
+    const outer=el('polygon',{points:hexPts(0,0,10),fill:color,opacity:'0.18',stroke:color,'stroke-width':'1.5'});
+    const inner=el('polygon',{points:hexPts(0,0,6),fill:color,opacity:'0.85'});
+    const label=txt(n.loc.substring(0,9).toUpperCase(),0,24);
+    label.setAttribute('font-size','8');label.setAttribute('fill','#ffb30088');
+    label.setAttribute('font-family','Orbitron');label.setAttribute('text-anchor','middle');
+    g.append(ring,outer,inner,label);
+    svg.appendChild(g);
+  });
+
+  // vol nodes (squares)
+  if(curFilter!=='critical'){
+    VOLS.forEach(v=>{
+      if(curFilter==='available'&&v.status!=='available') return;
+      if(curFilter==='assigned'&&v.status!=='assigned') return;
+      const cx=v.px*W, cy=v.py*H;
+      const color=SC[v.status];
+      const g=el('g',{transform:`translate(${cx},${cy})`});
+      g.addEventListener('mousemove',(e)=>showTip(e,`${v.cs} — ${v.name} | ${v.status.toUpperCase()} | ${v.zone} Zone`));
+      g.addEventListener('mouseleave',hideTip);
+      const outer=el('rect',{x:-8,y:-8,width:16,height:16,rx:'2',fill:color,opacity:'0.15',stroke:color,'stroke-width':'1.5'});
+      const inner=el('rect',{x:-4,y:-4,width:8,height:8,rx:'1',fill:color,opacity:v.status==='offline'?0.25:0.85});
+      const label=txt(v.cs,0,20);
+      label.setAttribute('font-size','7');label.setAttribute('fill','#ffffff44');
+      label.setAttribute('font-family','Orbitron');label.setAttribute('text-anchor','middle');
+      g.append(outer,inner,label);
+      svg.appendChild(g);
+    });
+  }
+}
+
+function hexPts(cx,cy,r){
+  return Array.from({length:6},(_,i)=>{
+    const a=Math.PI/180*(60*i-30);
+    return `${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+}
+
+function el(tag,attrs={}){
+  const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
+function txt(t,x,y){
+  const e=el('text',{x,y,'dominant-baseline':'middle'});
+  e.textContent=t; return e;
+}
+
+// redraw on resize
+window.addEventListener('resize',()=>drawMap());
+
+// ── RENDER ────────────────────────────────────────────────
+function renderVols(){
+  const list=document.getElementById('vollist');
+  list.innerHTML='';
+  VOLS.forEach(v=>{
+    const a=ASGN.find(x=>x.v===v.id);
+    const nl=a?NEEDS.find(x=>x.id===a.n)?.loc:null;
+    const d=document.createElement('div');
+    d.className='card';
+    d.innerHTML=`
+      <div class="crow">
+        <div>
+          <div class="ccs">${v.cs}</div>
+          <div class="cname">${v.name} · ${v.zone}</div>
+          ${nl?`<div class="cassign">→ ${nl}</div>`:''}
+        </div>
+        <div class="chip chip-${v.status}">${v.status.toUpperCase()}</div>
+      </div>
+      <div class="ctags">${v.skills.map(s=>`<span class="ctag">${s}</span>`).join('')}</div>`;
+    list.appendChild(d);
+  });
+  document.getElementById('ts-vol').textContent=VOLS.filter(v=>v.status!=='offline').length;
+}
+
+function renderNeeds(){
+  const list=document.getElementById('needslist');
+  const btn=list.querySelector('.addneed');
+  [...list.querySelectorAll('.card')].forEach(e=>e.remove());
+  NEEDS.forEach(n=>{
+    const pct=Math.min(100,Math.round(n.affected/600*100));
+    const d=document.createElement('div');
+    d.className='card'+(n.pri==='critical'?' crit':'');
+    d.id='nc'+n.id;
+    d.onclick=()=>hlNeed(n.id);
+    d.innerHTML=`
+      <div class="crow">
+        <div>
+          <div class="ccs" style="font-size:9px;">${n.loc.toUpperCase()}</div>
+          <div class="cname">${n.type} · ${n.affected} affected</div>
+        </div>
+        <div class="chip chip-${n.pri}">${n.pri.toUpperCase()}</div>
+      </div>
+      <div class="pbar"><div class="pfill" style="width:${pct}%;background:${PC[n.pri]};box-shadow:0 0 4px ${PC[n.pri]};"></div></div>`;
+    list.insertBefore(d,btn);
+  });
+  document.getElementById('ts-needs').textContent=NEEDS.filter(n=>n.status==='open').length;
+}
+
+function hlNeed(id){
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel'));
+  const el=document.getElementById('nc'+id);
+  if(el){el.classList.add('sel');el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  switchTab('needs');
+}
+
+// ── SELECTS ───────────────────────────────────────────────
+function populateSels(){
+  document.getElementById('sv').innerHTML=
+    VOLS.filter(v=>v.status!=='offline').map(v=>`<option value="${v.id}">${v.cs} — ${v.name} (${v.status.toUpperCase()})</option>`).join('');
+  document.getElementById('sn').innerHTML=
+    NEEDS.filter(n=>n.status==='open').map(n=>`<option value="${n.id}">${n.loc.toUpperCase()} [${n.pri.toUpperCase()}]</option>`).join('');
+}
+
+// ── ASSIGN ────────────────────────────────────────────────
+function doAssign(){
+  const vid=parseInt(document.getElementById('sv').value);
+  const nid=parseInt(document.getElementById('sn').value);
+  const pri=document.getElementById('sp').value;
+  const v=VOLS.find(x=>x.id===vid),n=NEEDS.find(x=>x.id===nid);
+  if(!v||!n) return;
+  v.status='assigned';n.status='assigned';
+  if(pri)n.pri=pri;
+  ASGN.push({v:vid,n:nid});assignCt++;
+  adjRes('r-med','rv-med',-5);adjRes('r-water','rv-water',-8);
+  addLog(`UNIT ${v.cs} ASSIGNED → ${n.loc.toUpperCase()}`,'#00d4ff');
+  document.getElementById('ts-assign').textContent=assignCt;
+  renderVols();renderNeeds();populateSels();drawMap();
+  showAlert(`✓ ${v.cs} DEPLOYED TO ${n.loc.toUpperCase()}`);
+}
+
+function adjRes(bid,vid,d){
+  const b=document.getElementById(bid),v=document.getElementById(vid);
+  let c=parseInt(v.textContent);
+  c=Math.max(5,Math.min(100,c+d));
+  b.style.width=c+'%';v.textContent=c+'%';
+  b.style.background=c>60?'#39ff14':c>30?'#ffb300':'#ff3b3b';
+}
+
+// ── TABS ──────────────────────────────────────────────────
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((x,i)=>x.classList.toggle('on',['vol','needs'][i]===t));
+  ['vol','needs'].forEach(id=>document.getElementById('tc-'+id).classList.toggle('on',id===t));
+}
+
+// ── FILTER ────────────────────────────────────────────────
+function filt(f,btn){
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');drawMap(f);
+}
+
+// ── TOOLTIP ───────────────────────────────────────────────
+function showTip(e,msg){
+  const tip=document.getElementById('tip');
+  const r=document.getElementById('mapwrap').getBoundingClientRect();
+  tip.textContent=msg;tip.style.display='block';
+  tip.style.left=(e.clientX-r.left+14)+'px';
+  tip.style.top=(e.clientY-r.top-32)+'px';
+}
+function hideTip(){document.getElementById('tip').style.display='none';}
+
+// ── COORDS ────────────────────────────────────────────────
+document.getElementById('mapwrap').addEventListener('mousemove',e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  const px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;
+  document.getElementById('clat').textContent='LAT: '+(28.6139+py*0.5-0.25).toFixed(4)+'°N';
+  document.getElementById('clng').textContent='LNG: '+(77.209+px*0.5-0.25).toFixed(4)+'°E';
+  document.getElementById('cgrid').textContent='GRID: '+String.fromCharCode(65+Math.floor(px*18))+'-'+String(Math.floor(py*12)+1).padStart(2,'0');
+});
+
+// ── MODAL ─────────────────────────────────────────────────
+function openModal(){document.getElementById('modalbg').classList.add('open');}
+function closeModal(){document.getElementById('modalbg').classList.remove('open');}
+function submitNeed(){
+  const loc=document.getElementById('mloc').value.trim();
+  if(!loc){showAlert('ERROR: LOCATION REQUIRED');return;}
+  const pri=document.getElementById('mpri').value;
+  const aff=parseInt(document.getElementById('maff').value)||50;
+  NEEDS.push({
+    id:NEEDS.length+1,loc,type:document.getElementById('mtype').value,
+    pri,affected:aff,status:'open',
+    px:0.2+Math.random()*0.6,py:0.15+Math.random()*0.7
+  });
+  closeModal();renderNeeds();populateSels();drawMap();
+  addLog(`NEW NEED: ${loc.toUpperCase()} — ${pri.toUpperCase()} | ${aff} CIVILIANS`,PC[pri]);
+  showAlert('NEED LOGGED: '+loc.toUpperCase());
+  document.getElementById('mloc').value='';document.getElementById('maff').value='';
+}
+
+// ── LOG ───────────────────────────────────────────────────
+function addLog(msg,color){
+  logCt++;
+  const b=document.getElementById('logbody');
+  const now=new Date();
+  const ts=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const d=document.createElement('div');d.className='logline';
+  d.innerHTML=`<span class="lts">${ts}</span><div class="lpip" style="background:${color};box-shadow:0 0 4px ${color};"></div><span class="lmsg">${msg}</span>`;
+  b.insertBefore(d,b.firstChild);
+  document.getElementById('logct').textContent=String(logCt).padStart(3,'0');
+}
+
+// ── ALERT ─────────────────────────────────────────────────
+function showAlert(msg){
+  const a=document.getElementById('alert');
+  a.textContent=msg;a.classList.add('show');
+  setTimeout(()=>a.classList.remove('show'),2800);
+}
+
+// ── CLOCK ─────────────────────────────────────────────────
+function startClock(){
+  function tick(){
+    const n=new Date();
+    document.getElementById('clock').textContent=
+      String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+    const up=Math.floor((Date.now()-t0)/1000);
+    document.getElementById('upt').textContent=
+      String(Math.floor(up/3600)).padStart(2,'0')+':'+
+      String(Math.floor(up%3600/60)).padStart(2,'0')+':'+
+      String(up%60).padStart(2,'0');
+  }
+  tick();setInterval(tick,1000);
+}
+</script>
+</body>
+</html>
